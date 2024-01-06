@@ -1,15 +1,35 @@
 import kotlinx.coroutines.*
+import kotlinx.datetime.Clock
 import kotlin.random.Random
 
 class Road(
-    numberOfRandomCars: Int = 10,
+    numberOfLeftCars: Int,
+    numberOfRightCars: Int,
+    timeForRide: Int?,
     private val additionalCars: List<Pair<Long, Car>>
 ) {
 
+    // пул потоков
     private val coroutineScope = CoroutineScope(Dispatchers.IO)
 
+    private val cars = List(numberOfLeftCars) { index ->
+        Car(
+            id = index,
+            durationOfRide = timeForRide ?: (Random.nextInt(10, 41) * 100),
+            direction = Direction.Left
+        )
+    }.plus(
+        List(numberOfRightCars) { index ->
+            Car(
+                id = numberOfLeftCars + index,
+                durationOfRide = timeForRide ?: (Random.nextInt(10, 41) * 100),
+                direction = Direction.Right
+            )
+        }
+    )
+    .shuffled()
+
     private val bridge = Bridge()
-    private val cars = randomListOfCars(numberOfRandomCars)
 
     init {
         val (leftCars, rightCars) = cars
@@ -26,30 +46,22 @@ class Road(
         )
     }
 
-    fun startTraffic(): List<Job> {
-        return cars.map { car ->
-            coroutineScope.launch { bridge.passCar(car) }
-        }.plus(
-            additionalCars.map { (delay, car) ->
-                coroutineScope.launch {
-                    delay(delay)
-                    bridge.passCar(car)
-                }
+    suspend fun startTraffic() {
+        val startTime = Clock.System.now().toEpochMilliseconds()
+        cars
+            .map { car ->
+                coroutineScope.launch { bridge.passCar(car) }
             }
-        )
+            .plus(
+                additionalCars.map { (delay, car) ->
+                    coroutineScope.launch {
+                        delay(delay)
+                        bridge.passCar(car)
+                    }
+                }
+            )
+            .joinAll()
+        val endTime = Clock.System.now().toEpochMilliseconds()
+        log("riding took ${endTime - startTime} ms")
     }
-
-}
-
-private fun randomListOfCars(size: Int = 10): List<Car> = List(size) { index ->
-    Car(
-        id = index,
-        direction = mapPriorityToDirection(Random.nextInt(0, 2))
-    )
-}
-
-private fun mapPriorityToDirection(priority: Int) = when (priority) {
-    0 -> Direction.Right
-    1 -> Direction.Left
-    else -> error("Priority $priority not exists")
 }

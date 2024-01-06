@@ -1,3 +1,5 @@
-1100 11 Left
-10000 12 Right
-21000 13 Left
+// format
+// timeOfStart, id, durationOfRide, direction
+1100 10000 2000 Left
+10000 10001 2000 Right
+21000 10002 2000 Left
